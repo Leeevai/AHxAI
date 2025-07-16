@@ -1,0 +1,457 @@
+# Project Structure
+
+`coding-ai-agent/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   └── CodingAIAgent.jsx
+│   │   ├── api/
+│   │   │   └── apiService.js
+│   │   ├── hooks/
+│   │   │   └── useApi.js
+│   │   └── utils/
+│   │       ├── codeLanguageDetector.js
+│   │       ├── codeFormatter.js
+│   │       └── errorHandler.js
+│   ├── package.json
+│   └── public/
+├── backend/
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── .env
+├── docker-compose.yml
+└── README.md`
+
+## Backend Setup (FastAPI + PostgreSQL)
+
+### 1. Prerequisites
+
+- Python 3.11+
+- PostgreSQL 15+
+- Docker (optional)
+
+### 2. Environment Setup
+
+Create a `.env` file in the backend directory:
+
+env
+
+`DATABASE_URL=postgresql://postgres:password@localhost:5432/coding_ai_db
+SECRET_KEY=your-secret-key-here-change-in-production
+GEMINI_API_KEY=your-gemini-api-key-here`
+
+### 3. Database Setup
+
+### Option A: Using Docker (Recommended)
+
+bash
+
+`*# Start PostgreSQL with Docker*
+docker run --name coding-ai-postgres \
+  -e POSTGRES_DB=coding_ai_db \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=password \
+  -p 5432:5432 \
+  -d postgres:15`
+
+### Option B: Local PostgreSQL
+
+bash
+
+`*# Install PostgreSQL and create database*
+createdb coding_ai_db`
+
+### 4. Backend Installation
+
+bash
+
+`cd backend
+pip install -r requirements.txt`
+
+### 5. Run Backend
+
+bash
+
+`*# Development server*
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+*# Or using Python*
+python main.py`
+
+### 6. API Documentation
+
+Once running, visit:
+
+- Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+- ReDoc: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
+## Frontend Setup (React)
+
+### 1. Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### 2. Installation
+
+bash
+
+`cd frontend
+npm install`
+
+### 3. Environment Setup
+
+Create a `.env` file in the frontend directory:
+
+env
+
+`REACT_APP_API_URL=http://localhost:8000`
+
+### 4. Run Frontend
+
+bash
+
+`npm start`
+
+The frontend will be available at [http://localhost:3000](http://localhost:3000/)
+
+## Docker Setup (Full Stack)
+
+### 1. Using Docker Compose
+
+bash
+
+`*# Build and start all services*
+docker-compose up --build
+
+*# Run in background*
+docker-compose up -d
+
+*# Stop services*
+docker-compose down`
+
+### 2. Services
+
+- Frontend: [http://localhost:3000](http://localhost:3000/)
+- Backend: [http://localhost:8000](http://localhost:8000/)
+- PostgreSQL: localhost:5432
+
+## Gemini AI Integration
+
+### 1. Get Gemini API Key
+
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key
+3. Add it to your `.env` file
+
+### 2. Update Backend for Gemini
+
+Replace the mock AI processing in `main.py` with actual Gemini calls:
+
+python
+
+`import google.generativeai as genai
+
+*# Configure Gemini*
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel('gemini-pro')
+
+async def process_with_ai(code: str, language: str, action: str, prompt: str) -> dict:
+    try:
+        *# Create context-aware prompt*
+        system_prompt = f"""
+        You are a coding AI assistant. The user wants you to {action} the following {language} code.
+        
+        User's request: {prompt}
+        
+        Code:
+        {code}
+        
+        Please provide:
+        1. Processed code (if applicable)
+        2. Clear explanation
+        3. Visualization code (if requested)
+        4. Practical suggestions
+        
+        Respond in JSON format with keys: processed_code, explanation, visualization_code, suggestions
+        """
+        
+        response = model.generate_content(system_prompt)
+        
+        *# Parse response (implement proper JSON parsing)*
+        result = parse_gemini_response(response.text)
+        
+        return result
+        
+    except Exception as e:
+        *# Fallback to mock response*
+        return await mock_ai_processing(code, language, action, prompt)`
+
+## Database Schema
+
+### Tables Created Automatically
+
+1. **code_sessions**
+    - `id` (UUID, Primary Key)
+    - `original_code` (TEXT)
+    - `processed_code` (TEXT)
+    - `language` (VARCHAR(50))
+    - `action` (VARCHAR(50))
+    - `prompt` (TEXT)
+    - `explanation` (TEXT)
+    - `visualization_code` (TEXT)
+    - `suggestions` (JSONB)
+    - `created_at` (TIMESTAMP)
+2. **chat_sessions**
+    - `id` (UUID, Primary Key)
+    - `title` (VARCHAR(255))
+    - `created_at` (TIMESTAMP)
+3. **chat_messages**
+    - `id` (UUID, Primary Key)
+    - `chat_id` (UUID, Foreign Key)
+    - `message` (TEXT)
+    - `response` (TEXT)
+    - `created_at` (TIMESTAMP)
+
+## API Endpoints
+
+### Code Processing
+
+- `POST /process-code` - Process code with AI
+- `GET /code-sessions` - Get all code sessions
+- `GET /code-session/{id}` - Get specific code session
+
+### Chat
+
+- `POST /chat` - Send chat message
+- `GET /chat-history` - Get chat history
+- `DELETE /chat-session/{id}` - Delete chat session
+
+### Utility
+
+- `GET /health` - Health check
+- `GET /` - API status
+
+## Frontend Features
+
+### 1. Modern UI Components
+
+- Collapsible sidebar
+- Tabbed interface (Code, Explanation, Visualization)
+- Real-time chat
+- Code editor with syntax highlighting
+- Copy/download functionality
+
+### 2. State Management
+
+- React hooks for API calls
+- Error handling
+- Loading states
+- Chat history persistence
+
+### 3. Code Features
+
+- Language detection
+- Code formatting
+- Syntax highlighting
+- File upload support
+
+## Development Tips
+
+### 1. Testing API Endpoints
+
+bash
+
+`*# Test health endpoint*
+curl http://localhost:8000/health
+
+*# Test code processing*
+curl -X POST http://localhost:8000/process-code \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer mock-token" \
+  -d '{
+    "code": "def hello(): print(\"Hello World\")",
+    "language": "python",
+    "action": "debug",
+    "prompt": "Check this code for issues"
+  }'`
+
+### 2. Database Queries
+
+sql
+
+- `*- Check code sessions*
+SELECT * FROM code_sessions ORDER BY created_at DESC;
+*- Check chat history*
+SELECT cs.title, cm.message, cm.response
+FROM chat_sessions cs
+JOIN chat_messages cm ON cs.id = cm.chat_id;`
+
+### 3. Frontend Development
+
+bash
+
+`*# Install additional dependencies*
+npm install axios react-router-dom
+
+*# Build for production*
+npm run build
+
+*# Run tests*
+npm test`
+
+## Production Deployment
+
+### 1. Environment Variables
+
+env
+
+`# Backend
+DATABASE_URL=postgresql://user:pass@prod-db:5432/coding_ai_db
+SECRET_KEY=secure-random-key
+GEMINI_API_KEY=your-production-key
+
+# Frontend
+REACT_APP_API_URL=https://your-api-domain.com`
+
+### 2. Docker Production Build
+
+dockerfile
+
+`*# Multi-stage build for frontend*
+FROM node:18-alpine as frontend-build
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci --only=production
+COPY frontend/ ./
+RUN npm run build
+
+*# Production backend*
+FROM python:3.11-slim
+WORKDIR /app
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/ ./
+COPY --from=frontend-build /app/build ./static
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]`
+
+### 3. Database Migrations
+
+python
+
+`*# Add to main.py for production*
+async def run_migrations():
+    async with db.pool.acquire() as conn:
+        *# Add migration logic here*
+        await conn.execute("ALTER TABLE code_sessions ADD COLUMN IF NOT EXISTS user_id UUID;")`
+
+## Security Considerations
+
+### 1. Authentication
+
+- Implement JWT tokens
+- Add rate limiting
+- Validate user permissions
+
+### 2. Input Validation
+
+- Sanitize code inputs
+- Validate file uploads
+- Prevent SQL injection
+
+### 3. API Security
+
+- HTTPS only in production
+- CORS configuration
+- Input size limits
+
+## Monitoring & Logging
+
+### 1. Backend Logging
+
+python
+
+`import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+*# Add to endpoints*
+logger.info(f"Processing code for user {user_id}")`
+
+### 2. Health Checks
+
+python
+
+`@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(),
+        "database": await check_db_health(),
+        "gemini": await check_gemini_health()
+    }`
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Database Connection Failed**
+    - Check PostgreSQL is running
+    - Verify connection string
+    - Check firewall settings
+2. **Gemini API Errors**
+    - Verify API key is valid
+    - Check quota limits
+    - Handle rate limiting
+3. **Frontend CORS Issues**
+    - Update CORS middleware
+    - Check API URL configuration
+    - Verify request headers
+4. **Build Errors**
+    - Clear node_modules and reinstall
+    - Check Node.js version compatibility
+    - Update dependencies
+
+### Debug Commands
+
+bash
+
+`*# Check backend logs*
+docker-compose logs backend
+
+*# Check database connection*
+docker-compose exec db psql -U postgres -d coding_ai_db
+
+*# Check frontend build*
+npm run build 2>&1 | grep ERROR`
+
+## Next Steps
+
+1. **Enhance AI Integration**
+    - Add more Gemini models
+    - Implement code execution
+    - Add unit test generation
+2. **Improve UI/UX**
+    - Add dark/light theme
+    - Implement keyboard shortcuts
+    - Add code diff visualization
+3. **Add Features**
+    - File upload/download
+    - Code sharing
+    - Collaborative editing
+    - Version control integration
+4. **Performance Optimization**
+    - Add caching
+    - Implement WebSocket for real-time updates
+    - Optimize database queries
+
+## Support
+
+For issues and questions:
+
+1. Check the logs for error messages
+2. Verify environment variables
+3. Test API endpoints individually
+4. Check database connectivity
+5. Review Gemini API documentation
