@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # Backend API
+  api:
+    build: .
+    container_name: coding_agent_api
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ENVIRONMENT=production
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - coding_agent_network
+
+  # Frontend (if you want to serve it via Docker)
+  frontend:
+    image: node:18-alpine
+    container_name: coding_agent_frontend
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm start"
+    depends_on:
+      - api
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    networks:
+      - coding_agent_network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: coding_agent_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - coding_agent_network
+
+  # PostgreSQL database (optional, for production)
+  postgres:
+    image: postgres:15-alpine
+    container_name: coding_agent_postgres
+    environment:
+      - POSTGRES_DB=coding_agent
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - coding_agent_network
+
+networks:
+  coding_agent_network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  postgres_data:

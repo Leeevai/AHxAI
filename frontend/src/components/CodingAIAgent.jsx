@@ -1,8 +1,58 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Send, Code, MessageSquare, Eye, ChevronLeft, ChevronRight,
-  Play, Copy, Download, Settings, History, Sparkles
+  Play, Copy, Download, Settings, History, Sparkles, Loader2
 } from 'lucide-react';
+
+// Mock API client - replace with actual API calls
+const mockApiClient = {
+  createChat: () => Promise.resolve({ id: 'chat-' + Date.now(), title: 'New Chat' }),
+  getChats: () => Promise.resolve([
+    { id: 'chat-1', title: 'Debug Python Function', created_at: '2 hours ago' },
+    { id: 'chat-2', title: 'Optimize Algorithm', created_at: '1 day ago' },
+    { id: 'chat-3', title: 'Create Data Structure', created_at: '3 days ago' },
+  ]),
+  analyzeCode: (code, language, context, chatId) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          chat_id: chatId || 'chat-' + Date.now(),
+          message: {
+            id: 'msg-' + Date.now(),
+            content: "I've analyzed your code and provided improvements.",
+            is_user: false,
+            timestamp: new Date()
+          },
+          ai_response: {
+            corrected_code: code.replace(/function/g, 'const'),
+            explanation: `This ${language} code has been optimized for better performance and readability. Key improvements include modern syntax and better variable naming.`,
+            visualization_html: `<div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; font-family: monospace;">
+              <h3>Code Visualization</h3>
+              <p>Algorithm: ${language.toUpperCase()}</p>
+              <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 4px; margin-top: 10px;">
+                <div style="display: flex; gap: 10px;">
+                  <div style="width: 20px; height: 20px; background: #ff6b6b; border-radius: 50%;"></div>
+                  <div style="width: 20px; height: 20px; background: #4ecdc4; border-radius: 50%;"></div>
+                  <div style="width: 20px; height: 20px; background: #45b7d1; border-radius: 50%;"></div>
+                </div>
+              </div>
+            </div>`,
+            suggestions: [
+              "Use const/let instead of var",
+              "Add input validation",
+              "Consider using modern array methods",
+              "Add TypeScript for better type safety"
+            ],
+            warnings: [
+              "O(n²) time complexity - consider optimization for large datasets",
+              "Missing error handling for edge cases"
+            ]
+          }
+        });
+      }, 1500);
+    });
+  }
+};
 
 const CodeBlock = ({ code, language = 'javascript', title }) => {
   const [copied, setCopied] = useState(false);
@@ -55,19 +105,25 @@ const ChatMessage = ({ message, isUser }) => (
   </div>
 );
 
+const VisualizationPanel = ({ html }) => {
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg p-4 h-64 overflow-auto">
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
+};
+
 export default function CodingAIAgent() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('code');
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [chatHistory] = useState([
-    { id: 1, title: 'Debug Python Function', timestamp: '2 hours ago' },
-    { id: 2, title: 'Optimize Algorithm', timestamp: '1 day ago' },
-    { id: 3, title: 'Create Data Structure', timestamp: '3 days ago' },
-  ]);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
   const [currentChat, setCurrentChat] = useState([
     { message: "Hello! I'm your AI coding assistant. What can I help you with today?", isUser: false }
   ]);
+  const [analysisResult, setAnalysisResult] = useState(null);
   const [code, setCode] = useState(`function bubbleSort(arr) {
     let n = arr.length;
     for (let i = 0; i < n - 1; i++) {
@@ -82,40 +138,76 @@ export default function CodingAIAgent() {
     return arr;
 }`);
 
-  const explanation = `This bubble sort implementation has O(n²) time complexity. The algorithm repeatedly steps through the list, compares adjacent elements and swaps them if they are in the wrong order.`;
+  // Load chat history on component mount
+  useEffect(() => {
+    loadChatHistory();
+  }, []);
 
-  const visualizationCode = `// Binary Search Tree
-class TreeNode {
-    constructor(val) {
-        this.val = val;
-        this.left = null;
-        this.right = null;
+  const loadChatHistory = async () => {
+    try {
+      const chats = await mockApiClient.getChats();
+      setChatHistory(chats);
+    } catch (error) {
+      console.error('Error loading chat history:', error);
     }
-}
+  };
 
-function insert(root, val) {
-    if (!root) return new TreeNode(val);
-    if (val < root.val) {
-        root.left = insert(root.left, val);
-    } else {
-        root.right = insert(root.right, val);
+  const createNewChat = async () => {
+    try {
+      const newChat = await mockApiClient.createChat();
+      setCurrentChatId(newChat.id);
+      setCurrentChat([
+        { message: "Hello! I'm your AI coding assistant. What can I help you with today?", isUser: false }
+      ]);
+      setAnalysisResult(null);
+      await loadChatHistory();
+    } catch (error) {
+      console.error('Error creating new chat:', error);
     }
-    return root;
-}`;
+  };
 
-  const handleSubmit = () => {
+  const analyzeCurrentCode = async () => {
+    if (!code.trim()) return;
+
+    setIsLoading(true);
+    try {
+      const result = await mockApiClient.analyzeCode(code, 'javascript', '', currentChatId);
+      
+      setCurrentChat(prev => [
+        ...prev,
+        { message: `Analyze this code: ${code.substring(0, 50)}...`, isUser: true },
+        { message: result.message.content, isUser: false }
+      ]);
+      
+      setAnalysisResult(result.ai_response);
+      setCurrentChatId(result.chat_id);
+    } catch (error) {
+      console.error('Error analyzing code:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
     if (!prompt.trim()) return;
 
     setIsLoading(true);
     setCurrentChat(prev => [...prev, { message: prompt, isUser: true }]);
     
-    setTimeout(() => {
-      setCurrentChat(prev => [...prev, { 
-        message: "I've analyzed your code. Here are some optimization suggestions and explanations.",
-        isUser: false 
-      }]);
+    try {
+      // For general chat messages, you might want to handle differently
+      // This is a simplified example
+      setTimeout(() => {
+        setCurrentChat(prev => [...prev, { 
+          message: "I understand your question. Please share your code so I can help you better.",
+          isUser: false 
+        }]);
+        setIsLoading(false);
+      }, 1000);
+    } catch (error) {
+      console.error('Error sending message:', error);
       setIsLoading(false);
-    }, 1500);
+    }
     
     setPrompt('');
   };
@@ -161,7 +253,10 @@ function insert(root, val) {
         
         {!sidebarCollapsed && (
           <div className="p-4">
-            <button className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 mb-4">
+            <button 
+              onClick={createNewChat}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 mb-4"
+            >
               <MessageSquare size={16} />
               New Chat
             </button>
@@ -172,9 +267,15 @@ function insert(root, val) {
                 Recent Chats
               </div>
               {chatHistory.map((chat) => (
-                <div key={chat.id} className="p-2 hover:bg-slate-100 rounded cursor-pointer mb-1">
+                <div 
+                  key={chat.id} 
+                  onClick={() => setCurrentChatId(chat.id)}
+                  className={`p-2 hover:bg-slate-100 rounded cursor-pointer mb-1 ${
+                    currentChatId === chat.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+                  }`}
+                >
                   <div className="font-medium text-sm text-slate-700 truncate">{chat.title}</div>
-                  <div className="text-xs text-slate-500">{chat.timestamp}</div>
+                  <div className="text-xs text-slate-500">{chat.created_at}</div>
                 </div>
               ))}
             </div>
@@ -229,6 +330,14 @@ function insert(root, val) {
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-slate-900">Code Editor</h2>
                     <div className="flex gap-2">
+                      <button 
+                        onClick={analyzeCurrentCode}
+                        disabled={isLoading}
+                        className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                      >
+                        {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                        Analyze
+                      </button>
                       <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2">
                         <Play size={16} />
                         Run
@@ -252,23 +361,46 @@ function insert(root, val) {
                 <div className="h-full flex flex-col">
                   <h2 className="text-lg font-semibold text-slate-900 mb-4">Code Explanation</h2>
                   <div className="flex-1 bg-white rounded-lg p-4 border border-slate-200 overflow-y-auto">
-                    <p className="text-slate-700 mb-4">{explanation}</p>
-                    
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                      <h4 className="text-yellow-800 font-medium mb-2">⚠️ Performance Warning</h4>
-                      <p className="text-yellow-700 text-sm">
-                        O(n²) complexity - consider quicksort for larger datasets.
-                      </p>
-                    </div>
-                    
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <h4 className="text-green-800 font-medium mb-2">✅ Suggestions</h4>
-                      <ul className="text-green-700 text-sm space-y-1">
-                        <li>• Add input validation</li>
-                        <li>• Early termination optimization</li>
-                        <li>• TypeScript types</li>
-                      </ul>
-                    </div>
+                    {analysisResult ? (
+                      <>
+                        <div className="mb-4">
+                          <h3 className="font-medium text-slate-900 mb-2">Corrected Code:</h3>
+                          <CodeBlock code={analysisResult.corrected_code} language="javascript" />
+                        </div>
+                        
+                        <div className="mb-4">
+                          <h3 className="font-medium text-slate-900 mb-2">Explanation:</h3>
+                          <p className="text-slate-700">{analysisResult.explanation}</p>
+                        </div>
+                        
+                        {analysisResult.warnings?.length > 0 && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                            <h4 className="text-yellow-800 font-medium mb-2">⚠️ Warnings</h4>
+                            <ul className="text-yellow-700 text-sm space-y-1">
+                              {analysisResult.warnings.map((warning, idx) => (
+                                <li key={idx}>• {warning}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {analysisResult.suggestions?.length > 0 && (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <h4 className="text-green-800 font-medium mb-2">✅ Suggestions</h4>
+                            <ul className="text-green-700 text-sm space-y-1">
+                              {analysisResult.suggestions.map((suggestion, idx) => (
+                                <li key={idx}>• {suggestion}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center text-slate-500 py-8">
+                        <Code size={48} className="mx-auto mb-4 opacity-50" />
+                        <p>Click "Analyze" to get code explanations and suggestions</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -277,19 +409,26 @@ function insert(root, val) {
                 <div className="h-full flex flex-col">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-slate-900">Visualization</h2>
-                    <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                      <Play size={16} />
-                      Run Visualization
+                    <button 
+                      onClick={analyzeCurrentCode}
+                      disabled={isLoading}
+                      className="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                      {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                      Generate Visualization
                     </button>
                   </div>
-                  <div className="flex-1 space-y-4">
-                    <CodeBlock code={visualizationCode} title="Data Structure Visualization" />
-                    <div className="bg-white border-2 border-dashed border-slate-300 rounded-lg p-8 flex items-center justify-center">
-                      <div className="text-center text-slate-500">
-                        <Eye size={32} className="mx-auto mb-2 opacity-50" />
-                        <p>Visualization output will appear here</p>
+                  <div className="flex-1">
+                    {analysisResult?.visualization_html ? (
+                      <VisualizationPanel html={analysisResult.visualization_html} />
+                    ) : (
+                      <div className="bg-white border-2 border-dashed border-slate-300 rounded-lg p-8 flex items-center justify-center h-full">
+                        <div className="text-center text-slate-500">
+                          <Eye size={32} className="mx-auto mb-2 opacity-50" />
+                          <p>Analyze your code to generate visualizations</p>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -312,7 +451,7 @@ function insert(root, val) {
               
               {isLoading && (
                 <div className="flex items-center gap-2 text-slate-500 bg-slate-50 rounded-lg p-3">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                  <Loader2 size={16} className="animate-spin text-blue-500" />
                   <span>AI is thinking...</span>
                 </div>
               )}
