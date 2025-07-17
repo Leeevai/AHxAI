@@ -1,4 +1,4 @@
-import CodingAIAgent from './CodingAIAgent';
+import CodingAIAgent from './components/CodingAIAgent';
 
 function App() {
   return <CodingAIAgent />;
