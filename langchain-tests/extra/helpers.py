@@ -18,20 +18,6 @@ def get_docs(base_url: str, topic: str, tokens: int = 5_000) -> str:
 
     return llms_text_data
 
-# def get_docs(url: str) -> str:
-#     response = requests.get(url)
-
-#     if response.status_code == 200:
-#         llms_text_data = response.text
-#     else:
-#         llms_text_data = f"Failed to fetch data. Status code: {response.status_code}"
-
-#     delimiter = "----------------------------------------"
-
-#     doc_list = list(map(lambda x: x.strip(), llms_text_data.split(delimiter)))
-    
-#     return doc_list
-
 def pretty_print_dict(d: dict) -> None:
     print(json.dumps(d, indent=4, sort_keys=False))
 
