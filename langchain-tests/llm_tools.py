@@ -95,5 +95,3 @@ def scrap_snippets(lib_name: str, topic: str) -> str:
     """
 
     return _get_snippets(lib_name, topic)
-
-print(_get_snippets("project_demo", "dot prod"))

@@ -5,15 +5,32 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 
 from structured_outputs import Lib, CodeTextSep
-from llm_tools import scrap_docs
+from llm_tools import scrap_docs, scrap_snippets
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-llm = init_chat_model("gpt-4.1", model_provider="openai")
+def llm_hints(kind: str, libs: dict):
 
-lib_extractor_llm_public = llm.with_structured_output(Lib)
+    public_prompt = f"{kind.upper()} LIBS:\n"
+
+    for k, v in libs.items():
+        public_prompt += f"use {k} for {v}\n"
+    
+    return public_prompt
+
+llm = init_chat_model("gpt-4.1", model_provider="openai")
+lib_extractor_llm = llm.with_structured_output(Lib)
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # or ["*"] to allow all (not recommended in prod)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 memory = []
 
@@ -29,10 +46,11 @@ async def execute_query(request: QueryRequest):
     try:
         def execute_llm(llm, query: str, system_promt: str):
             tools_registry = {
-                "scrap_docs": scrap_docs
+                "scrap_docs": scrap_docs,
+                "scrap_snippets": scrap_snippets
             }
     
-            tools = [scrap_docs]
+            tools = [scrap_docs, scrap_snippets]
             llm_with_tools = llm.bind_tools(tools)
 
             messages = [
@@ -43,12 +61,13 @@ async def execute_query(request: QueryRequest):
             memory.extend(messages)
     
             useful_libs = lib_extractor_llm.invoke(query)
-            useful_libs = useful_libs.to_dict()
-    
-            libs_text = ""
-    
-            for k, v in useful_libs.items():
-                libs_text += f"{k} search for `{v}`\n"
+            public_libs = useful_libs.to_dict_public()
+            private_libs = useful_libs.to_dict_private()
+
+            public_prompt = llm_hints("public", public_libs)
+            private_prompt = llm_hints("private", private_libs)
+
+            libs_text = f"{public_prompt}\n\n{private_prompt}"
     
             next_prompt = f"get the docs and search for the topics of the following libraries\n{libs_text}"
     

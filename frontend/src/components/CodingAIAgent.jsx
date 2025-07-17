@@ -7,6 +7,8 @@ import ExplanationTab from './ExplanationTab';
 import VisualizationTab from './VisualizationTab';
 import ChatPanel from './ChatPanel';
 
+import axios from 'axios';
+
 export default function CodingAIAgent() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('code');
@@ -56,19 +58,33 @@ function insert(root, val) {
 }`;
 
   const handleSubmit = () => {
+    
+    alert("Pressed")
+
     if (!prompt.trim()) return;
 
     setIsLoading(true);
     setCurrentChat(prev => [...prev, { message: prompt, isUser: true }]);
-    
-    setTimeout(() => {
-      setCurrentChat(prev => [...prev, { 
-        message: "I've analyzed your code. Here are some optimization suggestions and explanations.",
-        isUser: false 
-      }]);
-      setIsLoading(false);
-    }, 1500);
-    
+
+    let query_request = {
+      "query": code,
+      "system_prompt": "you are a smart coding assistant"
+    }
+
+    axios.post("http://127.0.0.1:8000/", query_request)
+      .then(response => {
+        console.log(response)
+        setCode(response.data.result.content)
+      })
+
+    // setTimeout(() => {
+    //   setCurrentChat(prev => [...prev, { 
+    //     message: "I've analyzed your code. Here are some optimization suggestions and explanations.",
+    //     isUser: false 
+    //   }]);
+    //   setIsLoading(false);
+    // }, 1500);
+    setIsLoading(false);
     setPrompt('');
   };
 
