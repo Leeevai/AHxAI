@@ -11,3 +11,5 @@ libs = {
 }
 
 lib_names = list(libs.keys())
+
+private_libs = ["project_demo"]

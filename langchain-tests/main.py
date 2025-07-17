@@ -4,16 +4,18 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 
-from structured_outputs import Lib
+from structured_outputs import Lib, CodeTextSep
 from llm_tools import scrap_docs
 
 load_dotenv()
 
 llm = init_chat_model("gpt-4.1", model_provider="openai")
 
-lib_extractor_llm = llm.with_structured_output(Lib)
+lib_extractor_llm_public = llm.with_structured_output(Lib)
 
 app = FastAPI()
+
+memory = []
 
 class QueryRequest(BaseModel):
     query: str
@@ -32,11 +34,13 @@ async def execute_query(request: QueryRequest):
     
             tools = [scrap_docs]
             llm_with_tools = llm.bind_tools(tools)
-    
+
             messages = [
                 SystemMessage(system_promt),
                 HumanMessage(query),
             ]
+
+            memory.extend(messages)
     
             useful_libs = lib_extractor_llm.invoke(query)
             useful_libs = useful_libs.to_dict()
@@ -50,15 +54,20 @@ async def execute_query(request: QueryRequest):
     
             ai_message = llm_with_tools.invoke(next_prompt)
             messages.append(ai_message)
-    
+            memory.append(ai_message)
+
             tool_calls = ai_message.tool_calls
     
             for tool_call in tool_calls:
                 selected_tool = tools_registry[tool_call['name']]
                 tool_msg = selected_tool.invoke(tool_call)
                 messages.append(tool_msg)
+                memory.append(tool_msg)
     
-            output = llm_with_tools.invoke(messages)
+            output = llm_with_tools.invoke(memory)
+
+            print(memory)
+
             return (output, messages, tool_calls)
         
         result, full_messages, tool_calls = execute_llm(llm, query, system_prompt)

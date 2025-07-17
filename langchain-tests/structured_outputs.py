@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List
+from libs import lib_names, private_libs
 
 class Lib(BaseModel):
     f"""
@@ -13,7 +14,8 @@ class Lib(BaseModel):
         The first word should in each entry should be the name of the library, and then there should be a small sentence 7 to 15 wrods at max indicating what are the things that i need from this library,
         avoid using questions, if you need more that one thing insert this library with difference search sentence, i will search a vector database so write a seach sentence that workd best with vector databases
         If the prompt is not code-related and has no technical request, return an empty list.
-        Suggest all libraries that are present in the code, if code is available
+        Suggest all libraries that are present in the code, if code is available.
+        NOTE: the libraries may be public or private with no training data one them
         
         Constraints:
         Don't the same library twice in the code unless its really needed for a different thing, not a thing similar to a previous topic
@@ -35,7 +37,7 @@ class Lib(BaseModel):
         )
     )
 
-    def to_dict(self) -> dict:
+    def to_dict_public(self) -> dict:
         
         out = {}
         for item in self.lib:
@@ -43,6 +45,17 @@ class Lib(BaseModel):
             out[name.lower()] = search
 
         filtered = {k: v for k, v in out.items() if k in lib_names}
+
+        return filtered
+
+    def to_dict_private(self) -> dict:
+        
+        out = {}
+        for item in self.lib:
+            name, search = item.split(':')
+            out[name.lower()] = search
+
+        filtered = {k: v for k, v in out.items() if k in private_libs}
 
         return filtered
 
