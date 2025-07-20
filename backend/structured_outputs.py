@@ -84,6 +84,24 @@ class Lib(BaseModel):
         default=None,
         description="Elasticsearch library search query for search and analytics engine"
     )
+    
+    def to_dict_public(self):
+        """Convert to dictionary of public libraries"""
+        from libs import lib_names, private_libs
+        result = {}
+        for field_name, field_value in self.__dict__.items():
+            if field_value is not None and field_name in lib_names and field_name not in private_libs:
+                result[field_name] = field_value
+        return result
+    
+    def to_dict_private(self):
+        """Convert to dictionary of private libraries"""
+        from libs import private_libs
+        result = {}
+        for field_name, field_value in self.__dict__.items():
+            if field_value is not None and field_name in private_libs:
+                result[field_name] = field_value
+        return result
 
 class CodeTextSep(BaseModel):
     """Model for separating code and text content"""

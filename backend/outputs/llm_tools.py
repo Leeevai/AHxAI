@@ -6,60 +6,38 @@ import json
 from typing import Dict, Any, List
 import re
 import time
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 @tool
-def scrap_docs(query: str) -> str:
+def scrap_docs(lib_name: str, topic: str) -> str:
     """
-    Scrape documentation from various sources based on the query.
+    Scrape documentation from various sources based on the library and topic.
     
     Args:
-        query: The search query for documentation (e.g., "react hooks", "fastapi middleware")
+        lib_name: The name of the library to search documentation for
+        topic: The specific topic within the library to search for
     
     Returns:
         str: The scraped documentation content
     """
     try:
-        # Clean and process the query
-        query = query.strip().lower()
+        # Import libs here to avoid circular imports
+        from libs import libs
         
-        # Define documentation sources
-        doc_sources = {
-            "react": "https://react.dev/learn",
-            "fastapi": "https://fastapi.tiangolo.com/",
-            "python": "https://docs.python.org/3/",
-            "javascript": "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
-            "typescript": "https://www.typescriptlang.org/docs/",
-            "nodejs": "https://nodejs.org/en/docs/",
-            "django": "https://docs.djangoproject.com/en/stable/",
-            "flask": "https://flask.palletsprojects.com/en/stable/",
-            "vue": "https://vuejs.org/guide/",
-            "angular": "https://angular.io/docs",
-            "express": "https://expressjs.com/en/4x/api.html",
-            "mongodb": "https://docs.mongodb.com/manual/",
-            "postgresql": "https://www.postgresql.org/docs/current/",
-            "docker": "https://docs.docker.com/",
-            "kubernetes": "https://kubernetes.io/docs/",
-            "aws": "https://docs.aws.amazon.com/",
-            "azure": "https://docs.microsoft.com/en-us/azure/",
-            "gcp": "https://cloud.google.com/docs",
-            "redis": "https://redis.io/documentation",
-            "elasticsearch": "https://www.elastic.co/guide/"
-        }
-        
-        # Determine which documentation source to use
-        detected_lib = None
-        for lib, url in doc_sources.items():
-            if lib in query:
-                detected_lib = lib
-                break
-        
-        if detected_lib:
-            # For now, return structured mock documentation
-            # In production, implement actual web scraping
-            return get_mock_documentation(detected_lib, query)
+        # Get the base URL for the library
+        if lib_name in libs:
+            base_url = libs[lib_name]
+            
+            # Mock implementation - in production, implement actual web scraping
+            return f"Documentation for {lib_name} on topic '{topic}':\n\n"\
+                   f"This would fetch real documentation from {base_url} in production.\n\n"\
+                   f"Example usage:\n```python\n# Example code for {lib_name} related to {topic}\n# This is mock content\n```\n\n"\
+                   f"API Reference:\n- Function: example_function()\n- Class: ExampleClass\n- Method: example_method()\n"
         else:
-            # Generic search
-            return search_generic_docs(query)
+            return f"Library '{lib_name}' not found in our documentation sources."
             
     except Exception as e:
         return f"Error scraping documentation: {str(e)}"
@@ -197,6 +175,27 @@ def get_mock_documentation(library: str, query: str) -> str:
         return list(lib_docs.values())[0]
     
     return f"Mock documentation for {library}: {query}"
+
+@tool
+def scrap_snippets(lib_name: str, topic: str) -> str:
+    """
+    Retrieve code snippets related to a specific library and topic.
+    
+    Args:
+        lib_name: The name of the library to search snippets for
+        topic: The specific topic within the library to search for
+    
+    Returns:
+        str: The retrieved code snippets
+    """
+    try:
+        # Mock implementation - in production, this would connect to a vector database
+        return f"Code snippets for {lib_name} on topic '{topic}':\n\n"\
+               f"```python\n# Example snippet for {lib_name} related to {topic}\n"\
+               f"def example_function():\n    # This is a mock code snippet\n    print(\"Using {lib_name} for {topic}\")\n    return \"Result\"\n```\n\n"\
+               f"Another example:\n```python\n# Alternative approach\nclass Example{lib_name.capitalize()}:\n    def __init__(self):\n        self.config = \"Default config\"\n        \n    def {topic.replace(' ', '_')}(self, param):\n        return f\"Processing {{param}} with {{self.config}}\"\n```"
+    except Exception as e:
+        return f"Error retrieving code snippets: {str(e)}"
 
 def search_generic_docs(query: str) -> str:
     """
