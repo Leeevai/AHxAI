@@ -80,13 +80,135 @@ class ApiService {
   async healthCheck() {
     return this.request('/health');
   }
+
+  // Database health check
+  async dbHealthCheck() {
+    return this.request('/api/db/health');
+  }
+
+  // Database initialization
+  async initializeDatabase() {
+    return this.request('/api/db/init', {
+      method: 'POST'
+    });
+  }
+
+  // Database Chat Management
+  async createChatDB(title, userId = null) {
+    return this.request(`/api/db/chats?title=${encodeURIComponent(title)}${userId ? `&user_id=${userId}` : ''}`, {
+      method: 'POST'
+    });
+  }
+
+  async getChatsDB(userId = null, limit = 50, offset = 0) {
+    const params = new URLSearchParams({ limit, offset });
+    if (userId) params.append('user_id', userId);
+    return this.request(`/api/db/chats?${params}`);
+  }
+
+  async getChatDB(chatId) {
+    return this.request(`/api/db/chats/${chatId}`);
+  }
+
+  async deleteChatDB(chatId) {
+    return this.request(`/api/db/chats/${chatId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  // Database Chat Messages
+  async createMessageDB(chatId, content, isUser, metadata = null) {
+    const params = new URLSearchParams({
+      content,
+      is_user: isUser
+    });
+    if (metadata) params.append('metadata', JSON.stringify(metadata));
+    
+    return this.request(`/api/db/chats/${chatId}/messages?${params}`, {
+      method: 'POST'
+    });
+  }
+
+  async getChatMessagesDB(chatId, limit = 100, offset = 0) {
+    return this.request(`/api/db/chats/${chatId}/messages?limit=${limit}&offset=${offset}`);
+  }
+
+  // Database Code Projects
+  async createCodeProjectDB(name, language, codeContent, description = null, userId = null) {
+    const params = new URLSearchParams({
+      name,
+      language,
+      code_content: codeContent
+    });
+    if (description) params.append('description', description);
+    if (userId) params.append('user_id', userId);
+
+    return this.request(`/api/db/projects?${params}`, {
+      method: 'POST'
+    });
+  }
+
+  async getCodeProjectsDB(language = null, userId = null, limit = 50) {
+    const params = new URLSearchParams({ limit });
+    if (language) params.append('language', language);
+    if (userId) params.append('user_id', userId);
+    
+    return this.request(`/api/db/projects?${params}`);
+  }
+
+  async updateCodeProjectDB(projectId, codeContent, name = null) {
+    const params = new URLSearchParams({ code_content: codeContent });
+    if (name) params.append('name', name);
+
+    return this.request(`/api/db/projects/${projectId}?${params}`, {
+      method: 'PUT'
+    });
+  }
+
+  // Database Code Analysis
+  async createCodeAnalysisDB(projectId, originalCode, correctedCode = null, explanation = null, suggestions = null, warnings = null, analysisType = 'general') {
+    const params = new URLSearchParams({
+      project_id: projectId,
+      original_code: originalCode,
+      analysis_type: analysisType
+    });
+    if (correctedCode) params.append('corrected_code', correctedCode);
+    if (explanation) params.append('explanation', explanation);
+    if (suggestions) params.append('suggestions', JSON.stringify(suggestions));
+    if (warnings) params.append('warnings', JSON.stringify(warnings));
+
+    return this.request(`/api/db/analysis?${params}`, {
+      method: 'POST'
+    });
+  }
+
+  async getProjectAnalysisDB(projectId, analysisType = null) {
+    const params = analysisType ? `?analysis_type=${analysisType}` : '';
+    return this.request(`/api/db/analysis/project/${projectId}${params}`);
+  }
+
+  // Database Search and Analytics
+  async searchCodeProjectsDB(query, language = null, limit = 20) {
+    const params = new URLSearchParams({ query, limit });
+    if (language) params.append('language', language);
+    
+    return this.request(`/api/db/search/code?${params}`);
+  }
+
+  async getAnalyticsSummaryDB() {
+    return this.request('/api/db/analytics/summary');
+  }
+
+  async getLanguageStatsDB() {
+    return this.request('/api/db/stats/languages');
+  }
 }
 
-export default new ApiService();
+const apiService = new ApiService();
+export default apiService;
 
 // hooks/useApi.js
 import { useState, useEffect } from 'react';
-import ApiService from './apiService';
 
 export const useCodeProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -98,7 +220,7 @@ export const useCodeProcessor = () => {
     setError(null);
     
     try {
-      const result = await ApiService.processCode(code, language, action, prompt);
+      const result = await apiService.processCode(code, language, action, prompt);
       setResult(result);
       return result;
     } catch (err) {
@@ -122,7 +244,7 @@ export const useChat = () => {
     setError(null);
     
     try {
-      const response = await ApiService.sendChatMessage(message, chatId);
+      const response = await apiService.sendChatMessage(message, chatId);
       setMessages(prev => [...prev, {
         id: response.id,
         message: response.message,
@@ -156,7 +278,7 @@ export const useChatHistory = () => {
     setError(null);
     
     try {
-      const data = await ApiService.getChatHistory();
+      const data = await apiService.getChatHistory();
       setHistory(data);
     } catch (err) {
       setError(err.message);
@@ -167,7 +289,7 @@ export const useChatHistory = () => {
 
   const deleteSession = async (sessionId) => {
     try {
-      await ApiService.deleteChatSession(sessionId);
+      await apiService.deleteChatSession(sessionId);
       setHistory(prev => prev.filter(chat => chat.id !== sessionId));
     } catch (err) {
       setError(err.message);
@@ -192,7 +314,7 @@ export const useCodeSessions = () => {
     setError(null);
     
     try {
-      const data = await ApiService.getCodeSessions();
+      const data = await apiService.getCodeSessions();
       setSessions(data);
     } catch (err) {
       setError(err.message);
@@ -203,7 +325,7 @@ export const useCodeSessions = () => {
 
   const getSession = async (sessionId) => {
     try {
-      return await ApiService.getCodeSession(sessionId);
+      return await apiService.getCodeSession(sessionId);
     } catch (err) {
       setError(err.message);
       throw err;
@@ -215,6 +337,271 @@ export const useCodeSessions = () => {
   }, []);
 
   return { sessions, isLoading, error, refetch: fetchSessions, getSession };
+};
+
+// Database-related hooks
+export const useDatabase = () => {
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const initializeDatabase = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      await apiService.initializeDatabase();
+      setIsInitialized(true);
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkHealth = async () => {
+    try {
+      const result = await apiService.dbHealthCheck();
+      return result.status === 'healthy';
+    } catch (err) {
+      setError(err.message);
+      return false;
+    }
+  };
+
+  return { initializeDatabase, checkHealth, isInitialized, isLoading, error };
+};
+
+export const useChatDB = () => {
+  const [chats, setChats] = useState([]);
+  const [currentChat, setCurrentChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const createChat = async (title, userId = null) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const newChat = await apiService.createChatDB(title, userId);
+      setChats(prev => [newChat, ...prev]);
+      setCurrentChat(newChat);
+      setMessages([]);
+      return newChat;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadChats = async (userId = null, limit = 50, offset = 0) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const chatList = await apiService.getChatsDB(userId, limit, offset);
+      setChats(chatList);
+      return chatList;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadChatMessages = async (chatId) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const messageList = await apiService.getChatMessagesDB(chatId);
+      setMessages(messageList);
+      return messageList;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const addMessage = async (chatId, content, isUser, metadata = null) => {
+    try {
+      const newMessage = await apiService.createMessageDB(chatId, content, isUser, metadata);
+      setMessages(prev => [...prev, newMessage]);
+      return newMessage;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const deleteChat = async (chatId) => {
+    try {
+      await apiService.deleteChatDB(chatId);
+      setChats(prev => prev.filter(chat => chat.id !== chatId));
+      if (currentChat && currentChat.id === chatId) {
+        setCurrentChat(null);
+        setMessages([]);
+      }
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  return {
+    chats,
+    currentChat,
+    messages,
+    isLoading,
+    error,
+    createChat,
+    loadChats,
+    loadChatMessages,
+    addMessage,
+    deleteChat,
+    setCurrentChat
+  };
+};
+
+export const useCodeProjectsDB = () => {
+  const [projects, setProjects] = useState([]);
+  const [currentProject, setCurrentProject] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const createProject = async (name, language, codeContent, description = null, userId = null) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const newProject = await apiService.createCodeProjectDB(name, language, codeContent, description, userId);
+      setProjects(prev => [newProject, ...prev]);
+      setCurrentProject(newProject);
+      return newProject;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadProjects = async (language = null, userId = null, limit = 50) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const projectList = await apiService.getCodeProjectsDB(language, userId, limit);
+      setProjects(projectList);
+      return projectList;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateProject = async (projectId, codeContent, name = null) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const updatedProject = await apiService.updateCodeProjectDB(projectId, codeContent, name);
+      setProjects(prev => prev.map(p => p.id === projectId ? updatedProject : p));
+      if (currentProject && currentProject.id === projectId) {
+        setCurrentProject(updatedProject);
+      }
+      return updatedProject;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const searchProjects = async (query, language = null, limit = 20) => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const results = await apiService.searchCodeProjectsDB(query, language, limit);
+      return results;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return {
+    projects,
+    currentProject,
+    isLoading,
+    error,
+    createProject,
+    loadProjects,
+    updateProject,
+    searchProjects,
+    setCurrentProject
+  };
+};
+
+export const useAnalyticsDB = () => {
+  const [summary, setSummary] = useState(null);
+  const [languageStats, setLanguageStats] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const loadSummary = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const data = await apiService.getAnalyticsSummaryDB();
+      setSummary(data);
+      return data;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadLanguageStats = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const data = await apiService.getLanguageStatsDB();
+      setLanguageStats(data);
+      return data;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return {
+    summary,
+    languageStats,
+    isLoading,
+    error,
+    loadSummary,
+    loadLanguageStats
+  };
 };
 
 // utils/codeLanguageDetector.js

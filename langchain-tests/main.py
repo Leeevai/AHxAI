@@ -38,7 +38,7 @@ class QueryRequest(BaseModel):
     query: str
     system_prompt: str
 
-@app.post("/")
+@app.post("/execute-query")
 async def execute_query(request: QueryRequest):
     query = request.query
     system_prompt = request.system_prompt
