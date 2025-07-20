@@ -59,19 +59,18 @@ function insert(root, val) {
 
   const handleSubmit = () => {
     
-    alert("Pressed")
-
     if (!prompt.trim()) return;
 
     setIsLoading(true);
     setCurrentChat(prev => [...prev, { message: prompt, isUser: true }]);
 
+    const query = "code:\n" + code + "\n\n" + "prompt:\n" + prompt
     let query_request = {
-      "query": code,
+      "query": query,
       "system_prompt": "you are a smart coding assistant"
     }
 
-    axios.post("http://127.0.0.1:8000/", query_request)
+    axios.post("http://127.0.0.1:8000/execute-query", query_request)
       .then(response => {
         console.log(response)
         setCode(response.data.result.content)
